@@ -83,6 +83,29 @@ class _MapPreviewState extends State<MapPreview> {
           ),
           appBar: AppBar(
             backgroundColor: Colors.blue,
+            title: Center(
+                child: SizedBox(
+              height: 36,
+              child: TextField(
+                maxLines: 1,
+                style: const TextStyle(fontSize: 17),
+                textAlignVertical: TextAlignVertical.center,
+                textAlign: TextAlign.center,
+                decoration: InputDecoration(
+                  filled: true,
+                  border: const OutlineInputBorder(
+                      borderSide: BorderSide.none,
+                      borderRadius: BorderRadius.all(Radius.circular(30))),
+                  fillColor: Theme.of(context).inputDecorationTheme.fillColor,
+                  contentPadding: EdgeInsets.zero,
+                  hintText: 'Search',
+                  suffixIcon: IconButton(
+                    onPressed: () {},
+                    icon: const Icon(Icons.search),
+                  ),
+                ),
+              ),
+            )),
           ),
           body: Stack(
             children: [
