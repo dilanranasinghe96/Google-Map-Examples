@@ -40,6 +40,7 @@ dependencies:
   http: ^1.2.1
   google_maps_flutter: ^2.6.1
   multi_dropdown: ^2.1.4
+  geocoding: ^3.0.0
 
 dev_dependencies:
   flutter_test:
