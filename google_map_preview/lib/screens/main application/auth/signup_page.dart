@@ -18,12 +18,19 @@ class _SignUpPageState extends State<SignUpPage> {
           width: size.width * 0.75,
           height: 40,
           decoration: BoxDecoration(
-              color: Colors.amber,
+              color: Colors.purpleAccent.shade100,
               border: Border.all(),
               borderRadius: const BorderRadius.all(Radius.circular(20))),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              Image.asset(
+                'lib/assets/google_logo.png',
+                height: 25,
+              ),
+              const SizedBox(
+                width: 10,
+              ),
               CustomText(
                   text: 'Sign up with google',
                   color: Colors.black,
