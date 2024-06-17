@@ -1,13 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:google_map_preview/screens/drawing_routes.dart';
-import 'package:google_map_preview/screens/map_preview.dart';
-import 'package:google_map_preview/screens/on_tap_marker.dart';
-import 'package:google_map_preview/screens/show_locations.dart';
+import 'package:google_map_preview/screens/sample%20screens/drawing_routes.dart';
+import 'package:google_map_preview/screens/sample%20screens/map_preview.dart';
+import 'package:google_map_preview/screens/sample%20screens/on_tap_marker.dart';
+import 'package:google_map_preview/screens/sample%20screens/show_locations.dart';
 import 'package:lottie/lottie.dart';
 
-import 'main application/main_map_screen.dart';
+import '../main application/main_map_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});

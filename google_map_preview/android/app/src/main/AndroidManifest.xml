@@ -3,13 +3,14 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    
     <application
         android:label="google_map_preview"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
         <meta-data android:name="com.google.android.geo.API_KEY"
-               android:value="AIzaSyBsHNN0wRTqbFOspHRvcl-l4plfE6DUahw"/>
+               android:value="AIzaSyCvJD8KpIoHBzaOr1WyTvqEto3pBf4-v60"/>
 
         <activity
             android:name=".MainActivity"

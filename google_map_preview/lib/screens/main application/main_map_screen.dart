@@ -1,11 +1,16 @@
 import 'dart:convert';
 
+import 'package:fab_circular_menu_plus/fab_circular_menu_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:multi_dropdown/multiselect_dropdown.dart';
+import 'package:share/share.dart';
+
+import 'directions_page.dart';
+import 'search_page.dart';
 
 class MapPage extends StatefulWidget {
   const MapPage({super.key});
@@ -23,8 +28,10 @@ class _MapPageState extends State<MapPage> {
   final Set<Polyline> _polylines = {};
   LatLng? _currentPosition;
   final List<Place> _places = [];
-  String apiKey = 'AIzaSyBsHNN0wRTqbFOspHRvcl-l4plfE6DUahw';
+  String apiKey = 'AIzaSyCvJD8KpIoHBzaOr1WyTvqEto3pBf4-v60';
   double _distance = 0.0;
+  bool _isDistanceVisible =
+      false; // New variable to control distance label visibility
   MapType mapType = MapType.normal;
 
   @override
@@ -32,22 +39,6 @@ class _MapPageState extends State<MapPage> {
     super.initState();
     _getCurrentLocation();
   }
-
-  // void _getCurrentLocation() async {
-  //   Position position = await Geolocator.getCurrentPosition(
-  //       desiredAccuracy: LocationAccuracy.high);
-  //   setState(() {
-  //     _currentPosition = LatLng(position.latitude, position.longitude);
-  //   });
-  //   _mapController?.animateCamera(
-  //     CameraUpdate.newCameraPosition(
-  //       CameraPosition(
-  //         target: _currentPosition!,
-  //         zoom: 15,
-  //       ),
-  //     ),
-  //   );
-  // }
 
   void _getCurrentLocation() async {
     Position position = await Geolocator.getCurrentPosition(
@@ -63,6 +54,54 @@ class _MapPageState extends State<MapPage> {
         ),
       ),
     );
+    _addCurrentLocationMarker(_currentPosition!);
+  }
+
+  void _addCurrentLocationMarker(LatLng position) {
+    setState(() {
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('currentLocation'),
+          position: position,
+          infoWindow: const InfoWindow(title: 'Current Location'),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+        ),
+      );
+    });
+  }
+
+  void _navigateToSearchPage() async {
+    final searchQuery = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SearchPage(searchController: _searchController),
+      ),
+    );
+
+    if (searchQuery != null && searchQuery.isNotEmpty) {
+      _searchController.text = searchQuery;
+      _searchAndNavigate();
+    }
+  }
+
+  void _navigateToDirectionsPage() async {
+    final routeData = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DirectionsPage(
+          startController: _startController,
+          endController: _endController,
+        ),
+      ),
+    );
+
+    if (routeData != null &&
+        routeData['start'].isNotEmpty &&
+        routeData['end'].isNotEmpty) {
+      _startController.text = routeData['start'];
+      _endController.text = routeData['end'];
+      _drawPolyline();
+    }
   }
 
   Future<void> _drawPolyline() async {
@@ -79,7 +118,9 @@ class _MapPageState extends State<MapPage> {
 
       setState(() {
         _polylines.clear();
-        _markers.clear(); // Clear existing markers
+        _markers.removeWhere((marker) =>
+            marker.markerId.value ==
+            'currentLocation'); // Remove current location marker
         _polylines.add(Polyline(
           polylineId: const PolylineId('route'),
           points: [startLatLng, endLatLng],
@@ -87,7 +128,7 @@ class _MapPageState extends State<MapPage> {
           width: 5,
         ));
 
-        // Adding markers for start, end, and current locations
+        // Adding markers for start and end locations
         _markers.add(
           Marker(
             markerId: const MarkerId('start'),
@@ -106,17 +147,6 @@ class _MapPageState extends State<MapPage> {
                 BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
           ),
         );
-        if (_currentPosition != null) {
-          _markers.add(
-            Marker(
-              markerId: const MarkerId('current'),
-              position: _currentPosition!,
-              infoWindow: const InfoWindow(title: 'Current Location'),
-              icon: BitmapDescriptor.defaultMarkerWithHue(
-                  BitmapDescriptor.hueBlue),
-            ),
-          );
-        }
 
         _distance = Geolocator.distanceBetween(
                 startLatLng.latitude,
@@ -124,6 +154,7 @@ class _MapPageState extends State<MapPage> {
                 endLatLng.latitude,
                 endLatLng.longitude) /
             1000; // in kilometers
+        _isDistanceVisible = true; // Show distance label
       });
 
       _mapController?.animateCamera(CameraUpdate.newLatLngBounds(
@@ -177,6 +208,8 @@ class _MapPageState extends State<MapPage> {
             setState(() {
               _markers.clear();
               _places.clear();
+              _polylines.clear(); // Clear all polylines
+              _isDistanceVisible = false; // Hide distance label when searching
               for (var result in data['results']) {
                 final lat = result['geometry']['location']['lat'];
                 final lng = result['geometry']['location']['lng'];
@@ -202,227 +235,273 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
-  // Future<void> _drawPolyline() async {
-  //   try {
-  //     List<Location> startPlacemark =
-  //         await locationFromAddress(_startController.text);
-  //     List<Location> endPlacemark =
-  //         await locationFromAddress(_endController.text);
+//   Future<void> _shareLocation() async {
+//   if (_currentPosition != null) {
+//     String googleMapsUrl =
+//         'https://www.google.com/maps/search/?api=1&query=${_currentPosition!.latitude},${_currentPosition!.longitude}';
 
-  //     LatLng startLatLng =
-  //         LatLng(startPlacemark[0].latitude, startPlacemark[0].longitude);
-  //     LatLng endLatLng =
-  //         LatLng(endPlacemark[0].latitude, endPlacemark[0].longitude);
+//     try {
+//       // ignore: deprecated_member_use
+//       await launch(googleMapsUrl);
+//     } catch (e) {
+//       print('Error launching URL: $e');
+//       // Handle the error, e.g., show a snackbar or log the error
+//     }
+//   }
+// }
 
-  //     setState(() {
-  //       _polylines.clear();
-  //       _polylines.add(Polyline(
-  //         polylineId: const PolylineId('route'),
-  //         points: [startLatLng, endLatLng],
-  //         color: Colors.blue,
-  //         width: 5,
-  //       ));
-  //       _distance = Geolocator.distanceBetween(
-  //               startLatLng.latitude,
-  //               startLatLng.longitude,
-  //               endLatLng.latitude,
-  //               endLatLng.longitude) /
-  //           1000; // in kilometers
-  //     });
+  Future<void> _shareLocation() async {
+    if (_currentPosition != null) {
+      String googleMapsUrl =
+          'https://www.google.com/maps/search/?api=1&query=${_currentPosition!.latitude},${_currentPosition!.longitude}';
+      String encodedGoogleMapsUrl = Uri.encodeFull(googleMapsUrl);
 
-  //     _mapController?.animateCamera(CameraUpdate.newLatLngBounds(
-  //       LatLngBounds(
-  //         southwest: LatLng(
-  //           startLatLng.latitude < endLatLng.latitude
-  //               ? startLatLng.latitude
-  //               : endLatLng.latitude,
-  //           startLatLng.longitude < endLatLng.longitude
-  //               ? startLatLng.longitude
-  //               : endLatLng.longitude,
-  //         ),
-  //         northeast: LatLng(
-  //           startLatLng.latitude > endLatLng.latitude
-  //               ? startLatLng.latitude
-  //               : endLatLng.latitude,
-  //           startLatLng.longitude > endLatLng.longitude
-  //               ? startLatLng.longitude
-  //               : endLatLng.longitude,
-  //         ),
-  //       ),
-  //       50,
-  //     ));
-  //   } catch (e) {
-  //     print('Error: $e');
-  //   }
-  // }
+      try {
+        await Share.share(
+          'Check out my location: $encodedGoogleMapsUrl',
+          subject: 'Location Sharing',
+        );
+      } catch (e) {
+        print('Error sharing location: $e');
+        // Handle the error, e.g., show a snackbar or log the error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to share location: $e'),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } else {
+      // Handle case where current location is not available
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Current location not available.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return Scaffold(
-      drawer: Drawer(
-        child: Column(
-          children: [
-            Container(
-              height: size.height * 0.25,
-              color: Colors.amber,
-            ),
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 20, right: 20, top: 10),
-                child: Column(
-                  children: [
-                    MultiSelectDropDown<int>(
-                      onOptionSelected: (List<ValueItem<int>> selectedOptions) {
-                        setState(() {
-                          if (selectedOptions.isNotEmpty) {
-                            int? selectedValue = selectedOptions.first.value;
-                            if (selectedValue == 1) {
-                              mapType = MapType.normal;
-                              Navigator.pop(context);
-                            } else if (selectedValue == 2) {
-                              mapType = MapType.satellite;
-                              Navigator.pop(context);
-                            } else if (selectedValue == 3) {
-                              mapType = MapType.hybrid;
-                              Navigator.pop(context);
-                            } else if (selectedValue == 4) {
-                              mapType = MapType.terrain;
-                              Navigator.pop(context);
-                            }
-                          }
-                        });
-                      },
-                      options: const [
-                        ValueItem(label: 'Normal', value: 1),
-                        ValueItem(label: 'Satellite', value: 2),
-                        ValueItem(label: 'Hybrid', value: 3),
-                        ValueItem(label: 'Terrain', value: 4),
+    return SafeArea(
+      child: Scaffold(
+        drawer: Drawer(
+          child: Column(
+            children: [
+              Container(
+                height: size.height * 0.25, // Example height for top section
+                color: Colors.purpleAccent,
+                // Your top section content here
+              ),
+              Expanded(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 10),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          children: [
+                            MultiSelectDropDown<int>(
+                              onOptionSelected:
+                                  (List<ValueItem<int>> selectedOptions) {
+                                setState(() {
+                                  if (selectedOptions.isNotEmpty) {
+                                    int? selectedValue =
+                                        selectedOptions.first.value;
+                                    if (selectedValue == 1) {
+                                      mapType = MapType.normal;
+                                      Navigator.pop(context);
+                                    } else if (selectedValue == 2) {
+                                      mapType = MapType.satellite;
+                                      Navigator.pop(context);
+                                    } else if (selectedValue == 3) {
+                                      mapType = MapType.hybrid;
+                                      Navigator.pop(context);
+                                    } else if (selectedValue == 4) {
+                                      mapType = MapType.terrain;
+                                      Navigator.pop(context);
+                                    }
+                                  }
+                                });
+                              },
+                              options: const [
+                                ValueItem(label: 'Normal', value: 1),
+                                ValueItem(label: 'Satellite', value: 2),
+                                ValueItem(label: 'Hybrid', value: 3),
+                                ValueItem(label: 'Terrain', value: 4),
+                              ],
+                              maxItems: 4,
+                              selectionType: SelectionType.single,
+                              chipConfig:
+                                  const ChipConfig(wrapType: WrapType.wrap),
+                              dropdownHeight: 200,
+                              optionTextStyle: const TextStyle(fontSize: 18),
+                              selectedOptionIcon:
+                                  const Icon(Icons.check_circle),
+                              hint: 'Map type..',
+                              hintColor: Colors.grey.shade900,
+                              hintStyle: const TextStyle(fontSize: 18),
+                              singleSelectItemStyle:
+                                  const TextStyle(fontSize: 18),
+                            ),
+                            const SizedBox(height: 50),
+                          ],
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            ListTile(
+                              title: const Text('Settings'),
+                              leading: const Icon(Icons.settings),
+                              onTap: () {
+                                // Handle settings tap here
+                                Navigator.pop(context); // Close the drawer
+                              },
+                            ),
+                            ListTile(
+                              title: const Text('Help'),
+                              leading: const Icon(Icons.help),
+                              onTap: () {
+                                // Handle help tap here
+                                Navigator.pop(context); // Close the drawer
+                              },
+                            ),
+                            ListTile(
+                              title: const Text('Support'),
+                              leading: const Icon(Icons.support),
+                              onTap: () {
+                                // Handle support tap here
+                                Navigator.pop(context); // Close the drawer
+                              },
+                            ),
+                          ],
+                        ),
                       ],
-                      maxItems: 4,
-                      selectionType: SelectionType.single,
-                      chipConfig: const ChipConfig(wrapType: WrapType.wrap),
-                      dropdownHeight: 200,
-                      optionTextStyle: const TextStyle(fontSize: 18),
-                      selectedOptionIcon: const Icon(Icons.check_circle),
-                      hint: 'Map type..',
-                      hintColor: Colors.grey.shade900,
-                      hintStyle: const TextStyle(fontSize: 18),
-                      singleSelectItemStyle: const TextStyle(fontSize: 18),
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-      appBar: AppBar(
-        title: const Text('Google Maps Integration'),
-      ),
-      body: Stack(
-        children: [
-          GoogleMap(
-            mapType: mapType,
-            initialCameraPosition: CameraPosition(
-              target: _currentPosition ?? const LatLng(0, 0),
-              zoom: 15,
-            ),
-            onMapCreated: (GoogleMapController controller) {
-              _mapController = controller;
-              _getCurrentLocation();
-            },
-            markers: _markers,
-            polylines: _polylines,
-          ),
-          Positioned(
-            top: 10,
-            left: 15,
-            right: 15,
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search location',
-                    suffixIcon: IconButton(
-                      icon: const Icon(Icons.search),
-                      onPressed: _searchAndNavigate,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _startController,
-                  decoration: InputDecoration(
-                    hintText: 'Start location',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _endController,
-                  decoration: InputDecoration(
-                    hintText: 'End location',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: _drawPolyline,
-                  child: const Text('Draw Route'),
-                ),
-                if (_distance > 0)
-                  Text(
-                    'Distance: ${_distance.toStringAsFixed(2)} km',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-              ],
-            ),
-          ),
-          if (_places.isNotEmpty)
-            Positioned(
-              bottom: 20,
-              left: 0,
-              right: 0,
-              child: SizedBox(
-                height: 200,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _places.length,
-                  itemBuilder: (context, index) {
-                    return _placeCard(_places[index]);
-                  },
-                ),
-              ),
-            ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _mapController?.animateCamera(
-            CameraUpdate.newCameraPosition(
-              CameraPosition(
+        appBar: AppBar(
+          title: const Text('Google Maps Integration'),
+          backgroundColor: Colors.purpleAccent,
+        ),
+        body: Stack(
+          children: [
+            GoogleMap(
+              mapType: mapType,
+              initialCameraPosition: CameraPosition(
                 target: _currentPosition ?? const LatLng(0, 0),
                 zoom: 15,
               ),
+              onMapCreated: (GoogleMapController controller) {
+                _mapController = controller;
+                _getCurrentLocation();
+              },
+              markers: _markers,
+              polylines: _polylines,
             ),
-          );
-        },
-        child: const Icon(Icons.my_location),
+            if (_places.isNotEmpty)
+              Positioned(
+                bottom: 20,
+                left: 0,
+                right: 0,
+                child: SizedBox(
+                  height: 200,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _places.length,
+                    itemBuilder: (context, index) {
+                      return _placeCard(_places[index]);
+                    },
+                  ),
+                ),
+              ),
+            if (_isDistanceVisible) // Check if distance is visible
+              Positioned(
+                top: 20,
+                left: 20,
+                child: Container(
+                  padding: const EdgeInsets.all(8.0),
+                  color: Colors.white,
+                  child: Text(
+                    'Distance: ${_distance.toStringAsFixed(2)} km',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        floatingActionButton: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: FabCircularMenuPlus(
+            alignment: Alignment.bottomLeft,
+            fabColor: Colors.purpleAccent,
+            fabOpenColor: Colors.purpleAccent.shade200,
+            ringDiameter: 250.0,
+            ringWidth: 60.0,
+            ringColor: Colors.purpleAccent.shade100,
+            fabSize: 60.0,
+            children: [
+              IconButton(
+                onPressed: () {
+                  _mapController?.animateCamera(
+                    CameraUpdate.newCameraPosition(
+                      CameraPosition(
+                        target: _currentPosition ?? const LatLng(0, 0),
+                        zoom: 15,
+                      ),
+                    ),
+                  );
+                  _markers.add(
+                    Marker(
+                      markerId: const MarkerId('Current Location'),
+                      position: _currentPosition ?? const LatLng(0, 0),
+                      infoWindow:
+                          InfoWindow(title: _currentPosition.toString()),
+                      icon: BitmapDescriptor.defaultMarkerWithHue(
+                          BitmapDescriptor.hueRed),
+                    ),
+                  );
+                },
+                icon: const Icon(
+                  Icons.my_location,
+                  size: 30,
+                ),
+              ),
+              IconButton(
+                onPressed: _navigateToDirectionsPage,
+                icon: const Icon(
+                  Icons.navigation,
+                  size: 30,
+                ),
+              ),
+              IconButton(
+                onPressed: _navigateToSearchPage,
+                icon: const Icon(
+                  Icons.search,
+                  size: 30,
+                ),
+              ),
+              IconButton(
+                onPressed: () {
+                  _shareLocation();
+                },
+                icon: const Icon(
+                  Icons.share,
+                  size: 30,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

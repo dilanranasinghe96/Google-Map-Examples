@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-
-import 'screens/splash_sceen.dart';
+import 'package:google_map_preview/screens/main%20application/auth/signup_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -19,6 +18,6 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
           useMaterial3: true,
         ),
-        home: const SplashScreen());
+        home: const SignUpPage());
   }
 }
