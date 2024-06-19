@@ -1,9 +1,12 @@
 import 'dart:convert';
 
 import 'package:fab_circular_menu_plus/fab_circular_menu_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_map_preview/controllers/auth_controlller.dart';
+import 'package:google_map_preview/custom%20widgets/custom_text.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:multi_dropdown/multiselect_dropdown.dart';
@@ -13,8 +16,9 @@ import 'directions_page.dart';
 import 'search_page.dart';
 
 class MapPage extends StatefulWidget {
-  const MapPage({super.key});
+  const MapPage({super.key, required this.user});
 
+  final User user;
   @override
   _MapPageState createState() => _MapPageState();
 }
@@ -27,17 +31,18 @@ class _MapPageState extends State<MapPage> {
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
   LatLng? _currentPosition;
-  final List<Place> _places = [];
   String apiKey = 'api_key';
   double _distance = 0.0;
   bool _isDistanceVisible =
       false; // New variable to control distance label visibility
   MapType mapType = MapType.normal;
+  User? user;
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _loadUserProfile();
   }
 
   void _getCurrentLocation() async {
@@ -45,6 +50,7 @@ class _MapPageState extends State<MapPage> {
         desiredAccuracy: LocationAccuracy.high);
     setState(() {
       _currentPosition = LatLng(position.latitude, position.longitude);
+      _isDistanceVisible = false;
     });
     _mapController?.animateCamera(
       CameraUpdate.newCameraPosition(
@@ -64,7 +70,7 @@ class _MapPageState extends State<MapPage> {
           markerId: const MarkerId('currentLocation'),
           position: position,
           infoWindow: const InfoWindow(title: 'Current Location'),
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
         ),
       );
     });
@@ -207,7 +213,6 @@ class _MapPageState extends State<MapPage> {
             final data = json.decode(response.body);
             setState(() {
               _markers.clear();
-              _places.clear();
               _polylines.clear(); // Clear all polylines
               _isDistanceVisible = false; // Hide distance label when searching
               for (var result in data['results']) {
@@ -217,12 +222,13 @@ class _MapPageState extends State<MapPage> {
                 final address = result['formatted_address'];
                 _markers.add(
                   Marker(
+                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                        BitmapDescriptor.hueRed),
                     markerId: MarkerId(name),
                     position: LatLng(lat, lng),
                     infoWindow: InfoWindow(title: name, snippet: address),
                   ),
                 );
-                _places.add(Place(name, address, LatLng(lat, lng)));
               }
             });
           } else {
@@ -234,21 +240,6 @@ class _MapPageState extends State<MapPage> {
       }
     }
   }
-
-//   Future<void> _shareLocation() async {
-//   if (_currentPosition != null) {
-//     String googleMapsUrl =
-//         'https://www.google.com/maps/search/?api=1&query=${_currentPosition!.latitude},${_currentPosition!.longitude}';
-
-//     try {
-//       // ignore: deprecated_member_use
-//       await launch(googleMapsUrl);
-//     } catch (e) {
-//       print('Error launching URL: $e');
-//       // Handle the error, e.g., show a snackbar or log the error
-//     }
-//   }
-// }
 
   Future<void> _shareLocation() async {
     if (_currentPosition != null) {
@@ -282,265 +273,244 @@ class _MapPageState extends State<MapPage> {
     }
   }
 
+  void _loadUserProfile() {
+    user = FirebaseAuth.instance.currentUser;
+  }
+
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.of(context).size;
 
-    return SafeArea(
-      child: Scaffold(
-        drawer: Drawer(
-          child: Column(
-            children: [
-              Container(
-                height: size.height * 0.25, // Example height for top section
-                color: Colors.purpleAccent,
-                // Your top section content here
-              ),
-              Expanded(
-                child: Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 20, vertical: 10),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          children: [
-                            MultiSelectDropDown<int>(
-                              onOptionSelected:
-                                  (List<ValueItem<int>> selectedOptions) {
-                                setState(() {
-                                  if (selectedOptions.isNotEmpty) {
-                                    int? selectedValue =
-                                        selectedOptions.first.value;
-                                    if (selectedValue == 1) {
-                                      mapType = MapType.normal;
-                                      Navigator.pop(context);
-                                    } else if (selectedValue == 2) {
-                                      mapType = MapType.satellite;
-                                      Navigator.pop(context);
-                                    } else if (selectedValue == 3) {
-                                      mapType = MapType.hybrid;
-                                      Navigator.pop(context);
-                                    } else if (selectedValue == 4) {
-                                      mapType = MapType.terrain;
-                                      Navigator.pop(context);
-                                    }
-                                  }
-                                });
-                              },
-                              options: const [
-                                ValueItem(label: 'Normal', value: 1),
-                                ValueItem(label: 'Satellite', value: 2),
-                                ValueItem(label: 'Hybrid', value: 3),
-                                ValueItem(label: 'Terrain', value: 4),
-                              ],
-                              maxItems: 4,
-                              selectionType: SelectionType.single,
-                              chipConfig:
-                                  const ChipConfig(wrapType: WrapType.wrap),
-                              dropdownHeight: 200,
-                              optionTextStyle: const TextStyle(fontSize: 18),
-                              selectedOptionIcon:
-                                  const Icon(Icons.check_circle),
-                              hint: 'Map type..',
-                              hintColor: Colors.grey.shade900,
-                              hintStyle: const TextStyle(fontSize: 18),
-                              singleSelectItemStyle:
-                                  const TextStyle(fontSize: 18),
-                            ),
-                            const SizedBox(height: 50),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            ListTile(
-                              title: const Text('Settings'),
-                              leading: const Icon(Icons.settings),
-                              onTap: () {
-                                // Handle settings tap here
-                                Navigator.pop(context); // Close the drawer
-                              },
-                            ),
-                            ListTile(
-                              title: const Text('Help'),
-                              leading: const Icon(Icons.help),
-                              onTap: () {
-                                // Handle help tap here
-                                Navigator.pop(context); // Close the drawer
-                              },
-                            ),
-                            ListTile(
-                              title: const Text('Support'),
-                              leading: const Icon(Icons.support),
-                              onTap: () {
-                                // Handle support tap here
-                                Navigator.pop(context); // Close the drawer
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-        appBar: AppBar(
-          title: const Text('Google Maps Integration'),
-          backgroundColor: Colors.purpleAccent,
-        ),
-        body: Stack(
+    return Scaffold(
+      drawer: Drawer(
+        child: Column(
           children: [
-            GoogleMap(
-              mapType: mapType,
-              initialCameraPosition: CameraPosition(
-                target: _currentPosition ?? const LatLng(0, 0),
-                zoom: 15,
-              ),
-              onMapCreated: (GoogleMapController controller) {
-                _mapController = controller;
-                _getCurrentLocation();
-              },
-              markers: _markers,
-              polylines: _polylines,
+            Column(
+              children: [
+                UserAccountsDrawerHeader(
+                  decoration: BoxDecoration(color: Colors.amber.shade300),
+                  accountName: CustomText(
+                      text: user?.displayName ?? 'User Name',
+                      color: Colors.black,
+                      fsize: 16,
+                      fweight: FontWeight.w500),
+                  accountEmail: CustomText(
+                      text: user?.email ?? 'User Email',
+                      color: Colors.black,
+                      fsize: 16,
+                      fweight: FontWeight.w500),
+                  currentAccountPicture: CircleAvatar(
+                    backgroundImage: NetworkImage(user?.photoURL ?? ''),
+                    backgroundColor: Colors.transparent,
+                  ),
+                ),
+              ],
             ),
-            if (_places.isNotEmpty)
-              Positioned(
-                bottom: 20,
-                left: 0,
-                right: 0,
-                child: SizedBox(
-                  height: 200,
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _places.length,
-                    itemBuilder: (context, index) {
-                      return _placeCard(_places[index]);
-                    },
+            Expanded(
+              child: Center(
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        children: [
+                          MultiSelectDropDown<int>(
+                            onOptionSelected:
+                                (List<ValueItem<int>> selectedOptions) {
+                              setState(() {
+                                if (selectedOptions.isNotEmpty) {
+                                  int? selectedValue =
+                                      selectedOptions.first.value;
+                                  if (selectedValue == 1) {
+                                    mapType = MapType.normal;
+                                    Navigator.pop(context);
+                                  } else if (selectedValue == 2) {
+                                    mapType = MapType.satellite;
+                                    Navigator.pop(context);
+                                  } else if (selectedValue == 3) {
+                                    mapType = MapType.hybrid;
+                                    Navigator.pop(context);
+                                  } else if (selectedValue == 4) {
+                                    mapType = MapType.terrain;
+                                    Navigator.pop(context);
+                                  }
+                                }
+                              });
+                            },
+                            options: const [
+                              ValueItem(label: 'Normal', value: 1),
+                              ValueItem(label: 'Satellite', value: 2),
+                              ValueItem(label: 'Hybrid', value: 3),
+                              ValueItem(label: 'Terrain', value: 4),
+                            ],
+                            maxItems: 4,
+                            selectionType: SelectionType.single,
+                            chipConfig:
+                                const ChipConfig(wrapType: WrapType.wrap),
+                            dropdownHeight: 200,
+                            optionTextStyle: const TextStyle(fontSize: 18),
+                            selectedOptionIcon: const Icon(Icons.check_circle),
+                            hint: 'Map type..',
+                            hintColor: Colors.grey.shade900,
+                            hintStyle: const TextStyle(fontSize: 18),
+                            singleSelectItemStyle:
+                                const TextStyle(fontSize: 18),
+                          ),
+                          const SizedBox(height: 50),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ListTile(
+                            title: const Text('Settings'),
+                            leading: const Icon(Icons.settings),
+                            onTap: () {
+                              // Handle settings tap here
+                              Navigator.pop(context); // Close the drawer
+                            },
+                          ),
+                          ListTile(
+                            title: const Text('Help'),
+                            leading: const Icon(Icons.help),
+                            onTap: () {
+                              // Handle help tap here
+                              Navigator.pop(context); // Close the drawer
+                            },
+                          ),
+                          ListTile(
+                            title: const Text('Support'),
+                            leading: const Icon(Icons.support),
+                            onTap: () {
+                              // Handle support tap here
+                              Navigator.pop(context); // Close the drawer
+                            },
+                          ),
+                          ListTile(
+                            title: const Text('Sign out'),
+                            leading: const Icon(Icons.logout),
+                            onTap: () {
+                              AuthController.signOutUser(context);
+                              // Navigator.pop(context); // Close the drawer
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
-            if (_isDistanceVisible) // Check if distance is visible
-              Positioned(
-                top: 20,
-                left: 20,
-                child: Container(
-                  padding: const EdgeInsets.all(8.0),
-                  color: Colors.white,
-                  child: Text(
-                    'Distance: ${_distance.toStringAsFixed(2)} km',
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                ),
-              ),
+            ),
           ],
         ),
-        floatingActionButton: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: FabCircularMenuPlus(
-            alignment: Alignment.bottomLeft,
-            fabColor: Colors.purpleAccent,
-            fabOpenColor: Colors.purpleAccent.shade200,
-            ringDiameter: 250.0,
-            ringWidth: 60.0,
-            ringColor: Colors.purpleAccent.shade100,
-            fabSize: 60.0,
-            children: [
-              IconButton(
-                onPressed: () {
-                  _mapController?.animateCamera(
-                    CameraUpdate.newCameraPosition(
-                      CameraPosition(
-                        target: _currentPosition ?? const LatLng(0, 0),
-                        zoom: 15,
-                      ),
-                    ),
-                  );
-                  _markers.add(
-                    Marker(
-                      markerId: const MarkerId('Current Location'),
-                      position: _currentPosition ?? const LatLng(0, 0),
-                      infoWindow:
-                          InfoWindow(title: _currentPosition.toString()),
-                      icon: BitmapDescriptor.defaultMarkerWithHue(
-                          BitmapDescriptor.hueRed),
-                    ),
-                  );
-                },
-                icon: const Icon(
-                  Icons.my_location,
-                  size: 30,
-                ),
-              ),
-              IconButton(
-                onPressed: _navigateToDirectionsPage,
-                icon: const Icon(
-                  Icons.navigation,
-                  size: 30,
-                ),
-              ),
-              IconButton(
-                onPressed: _navigateToSearchPage,
-                icon: const Icon(
-                  Icons.search,
-                  size: 30,
-                ),
-              ),
-              IconButton(
-                onPressed: () {
-                  _shareLocation();
-                },
-                icon: const Icon(
-                  Icons.share,
-                  size: 30,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
-    );
-  }
-
-  Widget _placeCard(Place place) {
-    return Card(
-      margin: const EdgeInsets.all(10),
-      child: Container(
-        width: 150,
-        padding: const EdgeInsets.all(10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              place.name,
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      appBar: AppBar(
+        title: CustomText(
+            text: 'Google Map',
+            color: Colors.black,
+            fsize: 25,
+            fweight: FontWeight.bold),
+        backgroundColor: Colors.amber.shade300,
+      ),
+      body: Stack(
+        children: [
+          GoogleMap(
+            mapType: mapType,
+            initialCameraPosition: CameraPosition(
+              target: _currentPosition ?? const LatLng(0, 0),
+              zoom: 15,
             ),
-            const SizedBox(height: 5),
-            Text(place.address),
-            const Spacer(),
-            TextButton(
+            onMapCreated: (GoogleMapController controller) {
+              _mapController = controller;
+              _getCurrentLocation();
+            },
+            markers: _markers,
+            polylines: _polylines,
+          ),
+          if (_isDistanceVisible) // Check if distance is visible
+            Positioned(
+              top: 20,
+              left: 20,
+              child: Container(
+                padding: const EdgeInsets.all(8.0),
+                color: Colors.white,
+                child: Text(
+                  'Distance: ${_distance.toStringAsFixed(2)} km',
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+        ],
+      ),
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: FabCircularMenuPlus(
+          alignment: Alignment.bottomLeft,
+          fabColor: Colors.amber.shade300,
+          fabOpenColor: Colors.amber.shade100,
+          ringDiameter: 250.0,
+          ringWidth: 60.0,
+          ringColor: Colors.amber.shade300,
+          fabSize: 60.0,
+          children: [
+            IconButton(
               onPressed: () {
+                setState(() {
+                  _isDistanceVisible = false;
+                });
+
+                _markers.add(
+                  Marker(
+                    markerId: const MarkerId('Current Location'),
+                    position: _currentPosition ?? const LatLng(0, 0),
+                    infoWindow: const InfoWindow(title: 'Current Location'),
+                    icon: BitmapDescriptor.defaultMarkerWithHue(
+                        BitmapDescriptor.hueRed),
+                  ),
+                );
                 _mapController?.animateCamera(
-                  CameraUpdate.newLatLng(place.location),
+                  CameraUpdate.newCameraPosition(
+                    CameraPosition(
+                      target: _currentPosition ?? const LatLng(0, 0),
+                      zoom: 15,
+                    ),
+                  ),
                 );
               },
-              child: const Text('View on map'),
+              icon: const Icon(
+                Icons.my_location,
+                size: 30,
+              ),
+            ),
+            IconButton(
+              onPressed: _navigateToDirectionsPage,
+              icon: const Icon(
+                Icons.navigation,
+                size: 30,
+              ),
+            ),
+            IconButton(
+              onPressed: _navigateToSearchPage,
+              icon: const Icon(
+                Icons.search,
+                size: 30,
+              ),
+            ),
+            IconButton(
+              onPressed: () {
+                _shareLocation();
+              },
+              icon: const Icon(
+                Icons.share,
+                size: 30,
+              ),
             ),
           ],
         ),
       ),
     );
   }
-}
-
-class Place {
-  final String name;
-  final String address;
-  final LatLng location;
-
-  Place(this.name, this.address, this.location);
 }
