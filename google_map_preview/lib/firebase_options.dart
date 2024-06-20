@@ -53,12 +53,10 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'key',
+    apiKey: 'API_KEY_FIREBASE',
     appId: '1:1031739530725:android:afc7a66e912b043354230c',
     messagingSenderId: '1031739530725',
     projectId: 'map-application-90095',
     storageBucket: 'map-application-90095.appspot.com',
   );
 }
-
-//AIzaSyAIx7tbQGa5P0fsQs8PTYefsjNpjmBcXQo

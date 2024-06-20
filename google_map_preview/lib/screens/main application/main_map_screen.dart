@@ -31,7 +31,7 @@ class _MapPageState extends State<MapPage> {
   final Set<Marker> _markers = {};
   final Set<Polyline> _polylines = {};
   LatLng? _currentPosition;
-  String apiKey = 'api_key';
+  String apiKey = 'API_KEY_MAP';
   double _distance = 0.0;
   bool _isDistanceVisible =
       false; // New variable to control distance label visibility
